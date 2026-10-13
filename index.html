@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ajedrez">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>[hidden]{display:none!important}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Ajedrez de bolsillo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F&display=block">
+<meta name="theme-color" content="#1f2a22">
+<style>
+/* Layout: una sola pantalla; barra rival, tablero de torneo (vinilo verde y crema), barra propia, controles y planilla de jugadas. */
+:root {
+  --bg: #eef0ea;
+  --surface: #ffffff;
+  --ink: #18201b;
+  --muted: #5d6a61;
+  --line: #d5dbd2;
+  --sq-light: #ebe7cf;
+  --sq-dark: #5f8a5b;
+  --brass: #c08a2e;
+  --brass-ink: #2a1d05;
+  --danger: #c4372b;
+  --hl-last: rgba(226, 196, 60, .55);
+  --hl-sel: rgba(192, 138, 46, .75);
+  --dot: rgba(24, 32, 27, .28);
+  --shadow: 0 1px 0 rgba(0,0,0,.04), 0 8px 24px -12px rgba(24,32,27,.35);
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --font-pieces: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121714; --surface: #1b221d; --ink: #e6ebe4; --muted: #94a196; --line: #2c362f;
+    --sq-light: #d9d4b8; --sq-dark: #4d7549; --brass: #d9a24a; --brass-ink: #1f1504; --danger: #e0574a;
+    --dot: rgba(24, 32, 27, .35);
+    --shadow: 0 1px 0 rgba(255,255,255,.03), 0 10px 30px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121714; --surface: #1b221d; --ink: #e6ebe4; --muted: #94a196; --line: #2c362f;
+  --sq-light: #d9d4b8; --sq-dark: #4d7549; --brass: #d9a24a; --brass-ink: #1f1504; --danger: #e0574a;
+  --dot: rgba(24, 32, 27, .35);
+  --shadow: 0 1px 0 rgba(255,255,255,.03), 0 10px 30px -12px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+.app {
+  max-width: 560px; margin: 0 auto; min-height: 100%;
+  padding: 12px 16px 20px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px;
+}
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h1 {
+  font-family: var(--font-display); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em;
+  margin: 0; line-height: 1; text-wrap: balance;
+}
+h1 small { display: block; font-family: var(--font-body); font-weight: 500; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+  padding: 9px 14px; font-weight: 600; font-size: .9rem; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--brass-ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+button:focus-visible, .sq:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+
+.player {
+  display: flex; align-items: center; gap: 10px; min-height: 40px;
+}
+.lamp {
+  width: 12px; height: 12px; border-radius: 50%; flex: none;
+  background: var(--line); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+  transition: background .2s, box-shadow .2s;
+}
+.player.active .lamp { background: var(--brass); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brass) 25%, transparent); }
+.pname { font-weight: 600; white-space: nowrap; }
+.pstate { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.pstate.check { color: var(--danger); font-weight: 600; }
+.caps {
+  margin-left: auto; display: flex; align-items: center; gap: 4px; min-width: 0;
+  font-family: var(--font-pieces); font-size: 1.05rem; color: var(--muted); line-height: 1;
+  overflow: hidden; white-space: nowrap;
+}
+.caps .adv { font-family: var(--font-mono); font-size: .78rem; font-weight: 600; color: var(--ink); margin-left: 4px; }
+
+.boardwrap { position: relative; width: min(100%, 64dvh); margin: 0 auto; aspect-ratio: 1; max-width: 100%; }
+.board {
+  width: 100%; height: 100%; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  border-radius: 6px; overflow: hidden; box-shadow: var(--shadow);
+  border: 6px solid var(--sq-dark); box-sizing: border-box;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+.sq {
+  position: relative; border: 0; padding: 0; margin: 0; display: grid; place-items: center;
+  background: var(--sq-light); container-type: size;
+}
+.sq.dark { background: var(--sq-dark); }
+.sq::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.sq.last::before { background: var(--hl-last); }
+.sq.sel::before { background: var(--hl-sel); }
+.sq.check::before { background: radial-gradient(circle, rgba(232, 60, 40, .95) 0%, rgba(232, 60, 40, .55) 45%, transparent 75%); }
+.sq.target::after {
+  content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); pointer-events: none;
+}
+.sq.target.capture::after {
+  width: 86%; height: 86%; background: transparent; box-shadow: inset 0 0 0 5px var(--dot);
+}
+.pc {
+  position: relative; z-index: 1; font-family: var(--font-pieces); line-height: 1;
+  font-size: 78cqh; pointer-events: none;
+  transition: transform .12s ease-out;
+}
+.pc.w { color: #fbfaf5; -webkit-text-stroke: 1.2px #1d241f; paint-order: stroke fill; text-shadow: 0 2px 2px rgba(0,0,0,.28); }
+.pc.b { color: #18201b; -webkit-text-stroke: .6px #18201b; text-shadow: 0 1px 0 rgba(255,255,255,.22), 0 2px 2px rgba(0,0,0,.25); }
+.sq.sel .pc { transform: scale(1.08); }
+.coord {
+  position: absolute; z-index: 2; font-family: var(--font-mono); font-weight: 600; font-size: 17cqh; line-height: 1;
+  pointer-events: none; color: var(--sq-dark);
+}
+.sq.dark .coord { color: var(--sq-light); }
+.coord.file { right: 6%; bottom: 5%; }
+.coord.rank { left: 6%; top: 5%; }
+
+.overlay {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
+  background: rgba(14, 20, 16, .55); border-radius: 6px; padding: 16px; box-sizing: border-box;
+}
+.card {
+  background: var(--surface); color: var(--ink); border-radius: 14px; padding: 18px 18px 16px;
+  box-shadow: 0 20px 50px -20px rgba(0,0,0,.6); width: min(100%, 320px); box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 12px; text-align: center;
+}
+.card h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; letter-spacing: -.01em; text-wrap: balance; }
+.card p { margin: 0; color: var(--muted); }
+.promo-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.promo-row button {
+  aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--line); background: var(--sq-light);
+  display: grid; place-items: center; container-type: size;
+}
+.promo-row button:nth-child(even) { background: var(--sq-dark); }
+
+.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.controls .btn { justify-content: center; }
+
+.sheet {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 10px; min-height: 22px;
+  overflow-x: auto; white-space: nowrap; font-family: var(--font-mono); font-size: .85rem;
+  scrollbar-width: thin;
+}
+.sheet .empty { font-family: var(--font-body); color: var(--muted); font-size: .85rem; }
+.sheet .n { color: var(--muted); margin-left: 10px; }
+.sheet .n:first-child { margin-left: 0; }
+.sheet .mv { padding: 2px 4px; border-radius: 4px; }
+.sheet .mv.cur { background: color-mix(in srgb, var(--brass) 30%, transparent); }
+.hint { font-size: .75rem; color: var(--muted); text-align: center; margin: 0; }
+
+/* Panel de nueva partida */
+.modal {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: end center;
+  background: rgba(10, 14, 11, .5); padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 600px) { .modal { place-items: center; } }
+.panel {
+  background: var(--surface); border-radius: 16px; width: min(100%, 440px); box-sizing: border-box;
+  padding: 18px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px -20px rgba(0,0,0,.6);
+}
+.panel h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.35rem; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--bg); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button {
+  border: 0; background: transparent; border-radius: 8px; padding: 10px 6px; font-weight: 600; font-size: .9rem; color: var(--muted);
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.check-row { display: flex; align-items: center; gap: 10px; font-size: .92rem; }
+.check-row input { width: 20px; height: 20px; accent-color: var(--brass); }
+.panel-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Ajedrez<small id="subtitle">Contra el bot · Medio</small></h1>
+    <button class="btn primary" id="btnNew" type="button">Nueva partida</button>
+  </header>
+
+  <div class="player" id="pTop">
+    <span class="lamp"></span>
+    <span class="pname" id="nameTop">Bot</span>
+    <span class="pstate" id="stateTop"></span>
+    <span class="caps" id="capsTop"></span>
+  </div>
+
+  <div class="boardwrap">
+    <div class="board" id="board" role="grid" aria-label="Tablero de ajedrez"></div>
+    <div class="overlay" id="promo" hidden>
+      <div class="card">
+        <h2>Coronar peón</h2>
+        <div class="promo-row" id="promoRow"></div>
+        <button class="btn" id="promoCancel" type="button" style="justify-content:center">Cancelar</button>
+      </div>
+    </div>
+    <div class="overlay" id="result" hidden>
+      <div class="card">
+        <h2 id="resultTitle">Jaque mate</h2>
+        <p id="resultText"></p>
+        <button class="btn primary" id="btnAgain" type="button" style="justify-content:center">Jugar otra</button>
+        <button class="btn" id="btnReview" type="button" style="justify-content:center">Ver el tablero</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="player" id="pBottom">
+    <span class="lamp"></span>
+    <span class="pname" id="nameBottom">Tú</span>
+    <span class="pstate" id="stateBottom"></span>
+    <span class="caps" id="capsBottom"></span>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnUndo" type="button">↶ Deshacer</button>
+    <button class="btn" id="btnFlip" type="button">⇅ Girar</button>
+    <button class="btn" id="btnResign" type="button">⚑ Rendirse</button>
+  </div>
+
+  <div class="sheet" id="sheet" aria-label="Planilla de jugadas"></div>
+  <p class="hint">Toca una pieza y luego la casilla de destino. Notación en español: R rey, D dama, T torre, A alfil, C caballo.</p>
+</div>
+
+<div class="modal" id="setup" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">Nueva partida</h2>
+    <div class="field">
+      <span class="label">Modo</span>
+      <div class="seg" data-key="mode">
+        <button type="button" id="optModeBot" data-v="bot">Contra el bot</button>
+        <button type="button" id="optMode2p" data-v="2p">Dos jugadores</button>
+      </div>
+    </div>
+    <div class="field" data-show="bot">
+      <span class="label">Juegas con</span>
+      <div class="seg" data-key="color">
+        <button type="button" id="optColW" data-v="w">Blancas</button>
+        <button type="button" id="optColB" data-v="b">Negras</button>
+        <button type="button" id="optColR" data-v="r">Al azar</button>
+      </div>
+    </div>
+    <div class="field" data-show="bot">
+      <span class="label">Nivel del bot</span>
+      <div class="seg" data-key="level">
+        <button type="button" id="optLv1" data-v="1">Fácil</button>
+        <button type="button" id="optLv2" data-v="2">Medio</button>
+        <button type="button" id="optLv3" data-v="3">Difícil</button>
+      </div>
+    </div>
+    <label class="check-row" data-show="2p">
+      <input type="checkbox" id="optAutoflip">
+      Girar el tablero en cada turno
+    </label>
+    <div class="panel-actions">
+      <button class="btn" id="setupCancel" type="button">Cancelar</button>
+      <button class="btn primary" id="setupStart" type="button">Empezar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="confirmResign" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="resignTitle">
+    <h2 id="resignTitle">¿Rendirse?</h2>
+    <p style="margin:0;color:var(--muted)" id="resignText">La partida termina y gana el rival.</p>
+    <div class="panel-actions">
+      <button class="btn" id="resignNo" type="button">Seguir jugando</button>
+      <button class="btn primary" id="resignYes" type="button">Rendirse</button>
+    </div>
+  </div>
+</div>
+
+<script id="engine">
+/* ====== Motor de ajedrez: reglas completas + búsqueda alfa-beta ====== */
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const KN = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const KG = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const ORTH = [[-1,0],[1,0],[0,-1],[0,1]];
+const colorOf = p => p ? (p === p.toUpperCase() ? "w" : "b") : null;
+const other = c => c === "w" ? "b" : "w";
+const sqIdx = s => (8 - (+s[1])) * 8 + (s.charCodeAt(0) - 97);
+const sqName = i => "abcdefgh"[i & 7] + (8 - (i >> 3));
+
+function parseFEN(f) {
+  const [b, t, c, e, h, fu] = f.trim().split(/\s+/);
+  const board = new Array(64).fill(null);
+  let i = 0;
+  for (const ch of b) { if (ch === "/") continue; if (/\d/.test(ch)) i += +ch; else board[i++] = ch; }
+  return { board, turn: t, castle: c === "-" ? "" : c, ep: (!e || e === "-") ? -1 : sqIdx(e), half: +h || 0, full: +fu || 1 };
+}
+function toFEN(pos) {
+  let s = "";
+  for (let r = 0; r < 8; r++) {
+    let empty = 0;
+    for (let f = 0; f < 8; f++) {
+      const p = pos.board[r * 8 + f];
+      if (!p) empty++; else { if (empty) { s += empty; empty = 0; } s += p; }
+    }
+    if (empty) s += empty;
+    if (r < 7) s += "/";
+  }
+  return `${s} ${pos.turn} ${pos.castle || "-"} ${pos.ep >= 0 ? sqName(pos.ep) : "-"} ${pos.half} ${pos.full}`;
+}
+function posKey(pos) { return pos.board.map(p => p || ".").join("") + pos.turn + pos.castle + pos.ep; }
+
+function attacked(pos, sq, by) {
+  const B = pos.board, r = sq >> 3, f = sq & 7, W = by === "w";
+  const pr = W ? r + 1 : r - 1, P = W ? "P" : "p";
+  if (pr >= 0 && pr < 8) {
+    if (f > 0 && B[pr * 8 + f - 1] === P) return true;
+    if (f < 7 && B[pr * 8 + f + 1] === P) return true;
+  }
+  const N = W ? "N" : "n", K = W ? "K" : "k", Bi = W ? "B" : "b", R = W ? "R" : "r", Q = W ? "Q" : "q";
+  for (const [dr, df] of KN) { const rr = r + dr, ff = f + df; if (rr >= 0 && rr < 8 && ff >= 0 && ff < 8 && B[rr * 8 + ff] === N) return true; }
+  for (const [dr, df] of KG) { const rr = r + dr, ff = f + df; if (rr >= 0 && rr < 8 && ff >= 0 && ff < 8 && B[rr * 8 + ff] === K) return true; }
+  for (const [dr, df] of DIAG) {
+    let rr = r + dr, ff = f + df;
+    while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) { const p = B[rr * 8 + ff]; if (p) { if (p === Bi || p === Q) return true; break; } rr += dr; ff += df; }
+  }
+  for (const [dr, df] of ORTH) {
+    let rr = r + dr, ff = f + df;
+    while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) { const p = B[rr * 8 + ff]; if (p) { if (p === R || p === Q) return true; break; } rr += dr; ff += df; }
+  }
+  return false;
+}
+function kingSq(pos, c) { const k = c === "w" ? "K" : "k"; return pos.board.indexOf(k); }
+function inCheck(pos) { return attacked(pos, kingSq(pos, pos.turn), other(pos.turn)); }
+
+function genPseudo(pos, capsOnly) {
+  const B = pos.board, us = pos.turn, them = other(us), mv = [];
+  for (let i = 0; i < 64; i++) {
+    const p = B[i];
+    if (!p || colorOf(p) !== us) continue;
+    const r = i >> 3, f = i & 7, t = p.toLowerCase();
+    if (t === "p") {
+      const dir = us === "w" ? -1 : 1, start = us === "w" ? 6 : 1, last = us === "w" ? 0 : 7, r1 = r + dir;
+      const add = (to, cap) => {
+        if (r1 === last) for (const pr of ["q", "r", "b", "n"]) mv.push({ from: i, to, cap, promo: pr });
+        else mv.push({ from: i, to, cap });
+      };
+      if (!B[r1 * 8 + f] && (!capsOnly || r1 === last)) {
+        add(r1 * 8 + f, null);
+        if (!capsOnly && r === start && !B[(r + 2 * dir) * 8 + f]) mv.push({ from: i, to: (r + 2 * dir) * 8 + f, cap: null, flag: "d" });
+      }
+      for (const df of [-1, 1]) {
+        const ff = f + df; if (ff < 0 || ff > 7) continue;
+        const to = r1 * 8 + ff, q = B[to];
+        if (q && colorOf(q) === them) add(to, q);
+        else if (to === pos.ep) mv.push({ from: i, to, cap: us === "w" ? "p" : "P", flag: "e" });
+      }
+    } else if (t === "n" || t === "k") {
+      for (const [dr, df] of (t === "n" ? KN : KG)) {
+        const rr = r + dr, ff = f + df; if (rr < 0 || rr > 7 || ff < 0 || ff > 7) continue;
+        const to = rr * 8 + ff, q = B[to];
+        if (!q) { if (!capsOnly) mv.push({ from: i, to, cap: null }); }
+        else if (colorOf(q) === them) mv.push({ from: i, to, cap: q });
+      }
+      if (t === "k" && !capsOnly) {
+        const C = pos.castle;
+        if (us === "w" && i === 60) {
+          if (C.includes("K") && !B[61] && !B[62] && B[63] === "R" && !attacked(pos, 60, them) && !attacked(pos, 61, them) && !attacked(pos, 62, them)) mv.push({ from: 60, to: 62, cap: null, flag: "k" });
+          if (C.includes("Q") && !B[59] && !B[58] && !B[57] && B[56] === "R" && !attacked(pos, 60, them) && !attacked(pos, 59, them) && !attacked(pos, 58, them)) mv.push({ from: 60, to: 58, cap: null, flag: "q" });
+        } else if (us === "b" && i === 4) {
+          if (C.includes("k") && !B[5] && !B[6] && B[7] === "r" && !attacked(pos, 4, them) && !attacked(pos, 5, them) && !attacked(pos, 6, them)) mv.push({ from: 4, to: 6, cap: null, flag: "k" });
+          if (C.includes("q") && !B[3] && !B[2] && !B[1] && B[0] === "r" && !attacked(pos, 4, them) && !attacked(pos, 3, them) && !attacked(pos, 2, them)) mv.push({ from: 4, to: 2, cap: null, flag: "q" });
+        }
+      }
+    } else {
+      const dirs = t === "b" ? DIAG : t === "r" ? ORTH : DIAG.concat(ORTH);
+      for (const [dr, df] of dirs) {
+        let rr = r + dr, ff = f + df;
+        while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) {
+          const to = rr * 8 + ff, q = B[to];
+          if (!q) { if (!capsOnly) mv.push({ from: i, to, cap: null }); }
+          else { if (colorOf(q) === them) mv.push({ from: i, to, cap: q }); break; }
+          rr += dr; ff += df;
+        }
+      }
+    }
+  }
+  return mv;
+}
+
+const CR = { 60: "KQ", 63: "K", 56: "Q", 4: "kq", 7: "k", 0: "q" };
+function make(pos, m) {
+  const B = pos.board, p = B[m.from];
+  const u = { castle: pos.castle, ep: pos.ep, half: pos.half, full: pos.full, p, capSq: m.to, cap: null };
+  if (m.flag === "e") u.capSq = m.to + (pos.turn === "w" ? 8 : -8);
+  u.cap = B[u.capSq]; B[u.capSq] = null;
+  B[m.to] = m.promo ? (pos.turn === "w" ? m.promo.toUpperCase() : m.promo) : p;
+  B[m.from] = null;
+  if (m.flag === "k") { B[m.from + 1] = B[m.from + 3]; B[m.from + 3] = null; }
+  else if (m.flag === "q") { B[m.from - 1] = B[m.from - 4]; B[m.from - 4] = null; }
+  pos.ep = m.flag === "d" ? (m.from + m.to) / 2 : -1;
+  let c = pos.castle;
+  if (c) { for (const s of [m.from, m.to]) if (CR[s]) for (const ch of CR[s]) c = c.replace(ch, ""); }
+  pos.castle = c;
+  pos.half = (p === "P" || p === "p" || u.cap) ? 0 : pos.half + 1;
+  if (pos.turn === "b") pos.full++;
+  pos.turn = other(pos.turn);
+  return u;
+}
+function unmake(pos, m, u) {
+  const B = pos.board;
+  pos.turn = other(pos.turn);
+  B[m.from] = u.p; B[m.to] = null; B[u.capSq] = u.cap;
+  if (m.flag === "k") { B[m.from + 3] = B[m.from + 1]; B[m.from + 1] = null; }
+  else if (m.flag === "q") { B[m.from - 4] = B[m.from - 1]; B[m.from - 1] = null; }
+  pos.castle = u.castle; pos.ep = u.ep; pos.half = u.half; pos.full = u.full;
+}
+function moverInCheck(pos) { const mover = other(pos.turn); return attacked(pos, kingSq(pos, mover), pos.turn); }
+function legal(pos, capsOnly) {
+  const out = [];
+  for (const m of genPseudo(pos, capsOnly)) { const u = make(pos, m); if (!moverInCheck(pos)) out.push(m); unmake(pos, m, u); }
+  return out;
+}
+
+const ES = { k: "R", q: "D", r: "T", b: "A", n: "C" };
+function san(pos, m, moves) {
+  const p = pos.board[m.from], t = p.toLowerCase();
+  let s;
+  if (m.flag === "k") s = "O-O";
+  else if (m.flag === "q") s = "O-O-O";
+  else {
+    const cap = !!m.cap;
+    if (t === "p") s = (cap ? "abcdefgh"[m.from & 7] + "x" : "") + sqName(m.to) + (m.promo ? "=" + ES[m.promo] : "");
+    else {
+      let dis = "";
+      const others = moves.filter(o => o.to === m.to && o.from !== m.from && pos.board[o.from] === p);
+      if (others.length) {
+        const sameF = others.some(o => (o.from & 7) === (m.from & 7)), sameR = others.some(o => (o.from >> 3) === (m.from >> 3));
+        dis = !sameF ? "abcdefgh"[m.from & 7] : !sameR ? String(8 - (m.from >> 3)) : sqName(m.from);
+      }
+      s = ES[t] + dis + (cap ? "x" : "") + sqName(m.to);
+    }
+  }
+  const u = make(pos, m);
+  if (inCheck(pos)) s += legal(pos).length ? "+" : "#";
+  unmake(pos, m, u);
+  return s;
+}
+
+/* Evaluación: material + tablas posicionales (vista desde las blancas, fila 0 = octava) */
+const PV = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+const PST = {
+  p: [0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+  n: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30, -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+  b: [-20,-10,-10,-10,-10,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,10,10,5,0,-10, -10,5,5,10,10,5,5,-10, -10,0,10,10,10,10,0,-10, -10,10,10,10,10,10,10,-10, -10,5,0,0,0,0,5,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+  r: [0,0,0,0,0,0,0,0, 5,10,10,10,10,10,10,5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 0,0,0,5,5,0,0,0],
+  q: [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,5,5,5,0,-10, -5,0,5,5,5,5,0,-5, 0,0,5,5,5,5,0,-5, -10,5,5,5,5,5,0,-10, -10,0,5,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+  k: [-30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -20,-30,-30,-40,-40,-30,-30,-20, -10,-20,-20,-20,-20,-20,-20,-10, 20,20,0,0,0,0,20,20, 20,30,10,0,0,10,30,20],
+  ke: [-50,-40,-30,-20,-20,-30,-40,-50, -30,-20,-10,0,0,-10,-20,-30, -30,-10,20,30,30,20,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,20,30,30,20,-10,-30, -30,-30,0,0,0,0,-30,-30, -50,-30,-30,-30,-30,-30,-30,-50]
+};
+function evaluate(pos) {
+  const B = pos.board;
+  let np = 0, s = 0;
+  for (let i = 0; i < 64; i++) { const p = B[i]; if (p) { const t = p.toLowerCase(); if (t !== "p" && t !== "k") np += PV[t]; } }
+  const endgame = np <= 1300;
+  for (let i = 0; i < 64; i++) {
+    const p = B[i]; if (!p) continue;
+    const t = p.toLowerCase(), w = p !== t;
+    const idx = w ? i : ((7 - (i >> 3)) * 8 + (i & 7));
+    const v = PV[t] + (t === "k" && endgame ? PST.ke : PST[t])[idx];
+    s += w ? v : -v;
+  }
+  return pos.turn === "w" ? s : -s;
+}
+
+const MATE = 100000, INF = 1e9;
+function orderMoves(pos, ms) {
+  for (const m of ms) {
+    let sc = 0;
+    if (m.cap) sc += 10 * PV[m.cap.toLowerCase()] - PV[pos.board[m.from].toLowerCase()] / 10 + 1000;
+    if (m.promo) sc += PV[m.promo] + 500;
+    m._s = sc;
+  }
+  ms.sort((a, b) => b._s - a._s);
+}
+
+const LEVELS = { 1: { depth: 1, noise: 140, ms: 300 }, 2: { depth: 2, noise: 30, ms: 900 }, 3: { depth: 6, noise: 0, ms: 1800 } };
+function bestMove(pos, level) {
+  const cfg = LEVELS[level] || LEVELS[2];
+  const root = legal(pos);
+  if (!root.length) return null;
+  if (root.length === 1) return root[0];
+  const deadline = Date.now() + cfg.ms, STOP = {};
+  let nodes = 0, timed = false;
+  const tick = () => { if (timed && (++nodes & 2047) === 0 && Date.now() > deadline) throw STOP; };
+
+  function qs(alpha, beta, qd) {
+    tick();
+    const stand = evaluate(pos);
+    if (stand >= beta) return stand;
+    if (stand > alpha) alpha = stand;
+    if (qd > 6) return stand;
+    const ms = genPseudo(pos, true);
+    orderMoves(pos, ms);
+    for (const m of ms) {
+      const u = make(pos, m);
+      if (moverInCheck(pos)) { unmake(pos, m, u); continue; }
+      const s = -qs(-beta, -alpha, qd + 1);
+      unmake(pos, m, u);
+      if (s >= beta) return s;
+      if (s > alpha) alpha = s;
+    }
+    return alpha;
+  }
+  function search(depth, alpha, beta, ply) {
+    tick();
+    if (pos.half >= 100) return 0;
+    if (depth <= 0) return qs(alpha, beta, 0);
+    const ms = genPseudo(pos, false);
+    orderMoves(pos, ms);
+    let best = -INF, any = false;
+    for (const m of ms) {
+      const u = make(pos, m);
+      if (moverInCheck(pos)) { unmake(pos, m, u); continue; }
+      any = true;
+      const s = -search(depth - 1, -beta, -alpha, ply + 1);
+      unmake(pos, m, u);
+      if (s > best) best = s;
+      if (s > alpha) alpha = s;
+      if (alpha >= beta) break;
+    }
+    if (!any) return inCheck(pos) ? -(MATE - ply) : 0;
+    return best;
+  }
+
+  orderMoves(pos, root);
+  let scored = root.map(m => ({ m, s: 0 }));
+  for (let d = 1; d <= cfg.depth; d++) {
+    timed = d > 1;
+    try {
+      let alpha = -INF;
+      const cur = [];
+      for (const { m } of scored) {
+        const u = make(pos, m);
+        const s = cfg.noise ? -search(d - 1, -INF, INF, 1) : -search(d - 1, -INF, -alpha + 1, 1);
+        unmake(pos, m, u);
+        cur.push({ m, s });
+        if (s > alpha) alpha = s;
+      }
+      cur.sort((a, b) => b.s - a.s);
+      scored = cur;
+      if (scored[0].s > MATE - 100) break;
+    } catch (e) {
+      if (e !== STOP) throw e;
+      break;
+    }
+  }
+  if (cfg.noise) {
+    let pick = null, top = -INF;
+    for (const c of scored) { const v = c.s + Math.random() * cfg.noise; if (v > top) { top = v; pick = c.m; } }
+    return pick;
+  }
+  return scored[0].m;
+}
+</script>
+
+<script>
+/* ====== Interfaz ====== */
+const $ = id => document.getElementById(id);
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const LEVEL_NAME = { 1: "Fácil", 2: "Medio", 3: "Difícil" };
+const STORE = "ajedrez.partida.v1";
+
+let settings = { mode: "bot", color: "w", human: "w", level: 2, autoflip: false };
+let pos, hist, keys, legalNow, over, sel = -1, flipped = false, thinking = false, token = 0, reviewing = false;
+
+/* --- Bot en un Web Worker para no congelar la pantalla --- */
+let worker = null;
+function makeWorker() {
+  try {
+    const src = $("engine").textContent + "\nonmessage=e=>{const p=parseFEN(e.data.fen);const m=bestMove(p,e.data.level);postMessage({id:e.data.id,m:m?{from:m.from,to:m.to,promo:m.promo||null}:null});};";
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    w.onmessage = e => onBotMove(e.data.id, e.data.m);
+    w.onerror = () => { worker = null; };
+    return w;
+  } catch (e) { return null; }
+}
+worker = makeWorker();
+
+/* --- Tablero --- */
+const boardEl = $("board");
+const squares = [];
+for (let v = 0; v < 64; v++) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "sq";
+  b.addEventListener("click", () => onSquare(+b.dataset.i));
+  boardEl.appendChild(b); squares.push(b);
+}
+
+function newGame() {
+  pos = parseFEN(START_FEN);
+  hist = []; keys = [posKey(pos)]; over = null; sel = -1; reviewing = false;
+  token++; thinking = false;
+  if (settings.mode === "bot") {
+    settings.human = settings.color === "r" ? (Math.random() < .5 ? "w" : "b") : settings.color;
+    flipped = settings.human === "b";
+  } else flipped = false;
+  legalNow = legal(pos);
+  save(); render(); maybeBot();
+}
+
+function doMove(m) {
+  const s = san(pos, m, legalNow);
+  const u = make(pos, m);
+  hist.push({ m, u, san: s });
+  keys.push(posKey(pos));
+  sel = -1;
+  legalNow = legal(pos);
+  checkOver();
+  if (settings.mode === "2p" && settings.autoflip && !over) flipped = pos.turn === "b";
+  save(); render(); maybeBot();
+}
+
+function insufficient() {
+  const rest = pos.board.filter(p => p && p.toLowerCase() !== "k");
+  if (rest.length === 0) return true;
+  if (rest.length === 1 && "nb".includes(rest[0].toLowerCase())) return true;
+  return false;
+}
+function checkOver() {
+  over = null;
+  if (!legalNow.length) {
+    over = inCheck(pos) ? { type: "mate", winner: other(pos.turn) } : { type: "stalemate" };
+  } else if (pos.half >= 100) over = { type: "fifty" };
+  else if (keys.filter(k => k === keys[keys.length - 1]).length >= 3) over = { type: "rep" };
+  else if (insufficient()) over = { type: "material" };
+}
+
+function maybeBot() {
+  if (settings.mode !== "bot" || over || pos.turn === settings.human) return;
+  thinking = true; render();
+  const id = ++token, fen = toFEN(pos);
+  if (worker) worker.postMessage({ id, fen, level: settings.level });
+  else setTimeout(() => { const m = bestMove(parseFEN(fen), settings.level); onBotMove(id, m); }, 60);
+}
+function onBotMove(id, mm) {
+  if (id !== token) return;
+  thinking = false;
+  if (!mm) { render(); return; }
+  const m = legalNow.find(x => x.from === mm.from && x.to === mm.to && (x.promo || null) === (mm.promo || null));
+  if (m) doMove(m); else render();
+}
+
+function undo() {
+  if (!hist.length) return;
+  token++; thinking = false; over = null; reviewing = false; sel = -1;
+  const pop = () => { const h = hist.pop(); unmake(pos, h.m, h.u); keys.pop(); };
+  pop();
+  if (settings.mode === "bot") while (hist.length && pos.turn !== settings.human) pop();
+  legalNow = legal(pos);
+  if (settings.mode === "2p" && settings.autoflip) flipped = pos.turn === "b";
+  save(); render(); maybeBot();
+}
+
+/* --- Toques --- */
+let pendingPromo = null;
+function onSquare(i) {
+  if (over || thinking) return;
+  if (settings.mode === "bot" && pos.turn !== settings.human) return;
+  if (sel >= 0) {
+    const ms = legalNow.filter(m => m.from === sel && m.to === i);
+    if (ms.length > 1) { showPromo(ms); return; }
+    if (ms.length === 1) { doMove(ms[0]); return; }
+  }
+  const p = pos.board[i];
+  sel = (p && colorOf(p) === pos.turn && sel !== i) ? i : -1;
+  render();
+}
+function showPromo(ms) {
+  pendingPromo = ms;
+  const row = $("promoRow"); row.innerHTML = "";
+  const c = pos.turn;
+  for (const t of ["q", "r", "b", "n"]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", { q: "Dama", r: "Torre", b: "Alfil", n: "Caballo" }[t]);
+    b.innerHTML = `<span class="pc ${c}">${GLYPH[t]}︎</span>`;
+    b.onclick = () => { $("promo").hidden = true; const m = pendingPromo.find(x => x.promo === t); pendingPromo = null; doMove(m); };
+    row.appendChild(b);
+  }
+  $("promo").hidden = false;
+}
+$("promoCancel").onclick = () => { $("promo").hidden = true; pendingPromo = null; sel = -1; render(); };
+
+/* --- Pintado --- */
+const SIDE_NAME = { w: "Blancas", b: "Negras" };
+function nameOf(c) {
+  if (settings.mode === "bot") return c === settings.human ? `Tú · ${SIDE_NAME[c]}` : `Bot ${LEVEL_NAME[settings.level]} · ${SIDE_NAME[c]}`;
+  return SIDE_NAME[c];
+}
+function capturedBy(c) {
+  // piezas del rival que faltan en el tablero
+  const opp = other(c), start = { q: 1, r: 2, b: 2, n: 2, p: 8 }, have = { q: 0, r: 0, b: 0, n: 0, p: 0 };
+  for (const p of pos.board) if (p && colorOf(p) === opp && p.toLowerCase() !== "k") have[p.toLowerCase()]++;
+  let out = "";
+  for (const t of ["q", "r", "b", "n", "p"]) out += (GLYPH[t] + "︎").repeat(Math.max(0, start[t] - have[t]));
+  return out;
+}
+function material(c) { let s = 0; for (const p of pos.board) if (p && colorOf(p) === c) s += PV[p.toLowerCase()]; return s; }
+
+function render() {
+  const last = hist.length ? hist[hist.length - 1].m : null;
+  const checkSq = inCheck(pos) ? kingSq(pos, pos.turn) : -1;
+  const targets = sel >= 0 ? legalNow.filter(m => m.from === sel) : [];
+  for (let v = 0; v < 64; v++) {
+    const i = flipped ? 63 - v : v, r = i >> 3, f = i & 7, b = squares[v], p = pos.board[i];
+    b.dataset.i = i;
+    const t = targets.find(m => m.to === i);
+    b.className = "sq" + ((r + f) % 2 ? " dark" : "") +
+      (last && (last.from === i || last.to === i) ? " last" : "") +
+      (i === sel ? " sel" : "") + (i === checkSq ? " check" : "") +
+      (t ? " target" + (t.cap ? " capture" : "") : "");
+    let html = p ? `<span class="pc ${colorOf(p)}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
+    if (v >= 56) html += `<span class="coord file">${"abcdefgh"[f]}</span>`;
+    if (v % 8 === 0) html += `<span class="coord rank">${8 - r}</span>`;
+    b.innerHTML = html;
+    b.setAttribute("aria-label", sqName(i) + (p ? " " + ({ k: "rey", q: "dama", r: "torre", b: "alfil", n: "caballo", p: "peón" })[p.toLowerCase()] + (colorOf(p) === "w" ? " blanco" : " negro") : ""));
+  }
+  const top = flipped ? "w" : "b", bot = other(top);
+  const diff = material("w") - material("b");
+  for (const [c, nm, st, cp, bar] of [[top, "nameTop", "stateTop", "capsTop", "pTop"], [bot, "nameBottom", "stateBottom", "capsBottom", "pBottom"]]) {
+    $(nm).textContent = nameOf(c);
+    const active = !over && pos.turn === c;
+    $(bar).classList.toggle("active", active);
+    const stEl = $(st);
+    stEl.className = "pstate";
+    if (active && thinking) stEl.textContent = "Pensando…";
+    else if (active && checkSq >= 0) { stEl.textContent = "¡Jaque!"; stEl.classList.add("check"); }
+    else if (active) stEl.textContent = "Juega";
+    else stEl.textContent = "";
+    const adv = c === "w" ? diff : -diff;
+    $(cp).innerHTML = capturedBy(c) + (adv > 0 ? `<span class="adv">+${Math.round(adv / 100)}</span>` : "");
+  }
+  $("subtitle").textContent = settings.mode === "bot" ? `Contra el bot · ${LEVEL_NAME[settings.level]}` : "Dos jugadores · mismo teléfono";
+  $("btnUndo").disabled = !hist.length;
+  $("btnResign").disabled = !!over || !hist.length;
+
+  // planilla
+  const sh = $("sheet");
+  if (!hist.length) sh.innerHTML = `<span class="empty">Las jugadas aparecerán aquí.</span>`;
+  else {
+    let h = "";
+    hist.forEach((x, k) => {
+      if (k % 2 === 0) h += `<span class="n">${k / 2 + 1}.</span>`;
+      h += `<span class="mv${k === hist.length - 1 ? " cur" : ""}">${x.san}</span> `;
+    });
+    sh.innerHTML = h;
+    sh.scrollLeft = sh.scrollWidth;
+  }
+
+  // resultado
+  if (over && !reviewing) {
+    let title = "Tablas", text = "";
+    if (over.type === "mate" || over.type === "resign") {
+      const w = over.winner;
+      if (settings.mode === "bot") title = w === settings.human ? "¡Ganaste!" : "Ganó el bot";
+      else title = `Ganan las ${SIDE_NAME[w].toLowerCase()}`;
+      text = over.type === "mate" ? "Jaque mate." : `Las ${SIDE_NAME[other(w)].toLowerCase()} se rindieron.`;
+    } else text = { stalemate: "Rey ahogado: el bando que mueve no tiene jugadas legales y no está en jaque.", fifty: "Regla de los 50 movimientos sin capturas ni movimientos de peón.", rep: "La misma posición se repitió tres veces.", material: "No queda material suficiente para dar mate." }[over.type];
+    $("resultTitle").textContent = title;
+    $("resultText").textContent = text;
+    $("result").hidden = false;
+  } else $("result").hidden = true;
+}
+
+/* --- Guardado local (solo en este navegador) --- */
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify({ settings, flipped, over: over && over.type === "resign" ? over : null, moves: hist.map(h => [h.m.from, h.m.to, h.m.promo || null]) })); } catch (e) {}
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (!d || !d.settings) return false;
+    settings = Object.assign(settings, d.settings);
+    pos = parseFEN(START_FEN); hist = []; keys = [posKey(pos)]; legalNow = legal(pos); over = null;
+    for (const [f, t, pr] of d.moves || []) {
+      const m = legalNow.find(x => x.from === f && x.to === t && (x.promo || null) === pr);
+      if (!m) break;
+      const s = san(pos, m, legalNow), u = make(pos, m);
+      hist.push({ m, u, san: s }); keys.push(posKey(pos)); legalNow = legal(pos);
+    }
+    checkOver();
+    if (!over && d.over) over = d.over;
+    flipped = !!d.flipped;
+    render(); maybeBot();
+    return true;
+  } catch (e) { return false; }
+}
+
+/* --- Botones --- */
+$("btnUndo").onclick = undo;
+$("btnFlip").onclick = () => { flipped = !flipped; save(); render(); };
+$("btnAgain").onclick = openSetup;
+$("btnReview").onclick = () => { reviewing = true; render(); };
+$("btnResign").onclick = () => {
+  const loser = settings.mode === "bot" ? settings.human : pos.turn;
+  $("resignText").textContent = settings.mode === "bot" ? "La partida termina y gana el bot." : `Se rinden las ${SIDE_NAME[loser].toLowerCase()} y la partida termina.`;
+  $("confirmResign").hidden = false;
+};
+$("resignNo").onclick = () => { $("confirmResign").hidden = true; };
+$("resignYes").onclick = () => {
+  $("confirmResign").hidden = true;
+  const loser = settings.mode === "bot" ? settings.human : pos.turn;
+  token++; thinking = false;
+  over = { type: "resign", winner: other(loser) }; reviewing = false;
+  save(); render();
+};
+
+/* --- Panel de nueva partida --- */
+let draft = {};
+function syncSetup() {
+  document.querySelectorAll("#setup .seg").forEach(seg => {
+    const k = seg.dataset.key;
+    seg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(String(draft[k]) === b.dataset.v)));
+  });
+  document.querySelectorAll("#setup [data-show]").forEach(el => { el.hidden = el.dataset.show !== draft.mode; });
+  $("optAutoflip").checked = !!draft.autoflip;
+}
+function openSetup() { draft = { ...settings }; syncSetup(); $("setup").hidden = false; }
+document.querySelectorAll("#setup .seg button").forEach(b => b.addEventListener("click", () => {
+  const k = b.closest(".seg").dataset.key;
+  draft[k] = k === "level" ? +b.dataset.v : b.dataset.v;
+  syncSetup();
+}));
+$("optAutoflip").onchange = e => { draft.autoflip = e.target.checked; };
+$("btnNew").onclick = openSetup;
+$("setupCancel").onclick = () => { $("setup").hidden = true; };
+$("setupStart").onclick = () => { settings = { ...settings, ...draft }; $("setup").hidden = true; newGame(); };
+
+if (!load()) newGame();
+</script>
+<script>
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+</script>
+</body>
+</html>
